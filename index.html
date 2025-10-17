@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Поиск пути с анимацией (волна)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&family=WDXL+Lubrifont+TC&display=swap" rel="stylesheet">
+<style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: sans-serif;
+      margin-top: 20px;
+      background-color: black;    
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(15, 25px);
+      grid-template-rows: repeat(15, 25px);
+      gap: 1px;
+      background-color: #0015ff;
+      padding: 1px;
+    }
+
+    .cell {
+      width: 25px;
+      height: 25px;
+      background-color: rgb(0, 0, 0);
+      border: 1px solid #aaa;
+      box-sizing: border-box;
+    }
+
+    .start { background-color: rgb(255, 200, 0) !important; }
+    .end { background-color: rgb(153, 0, 255) !important; }
+    .wall { background-color: rgb(201, 1, 1) !important; }
+    .visited { background-color: #00d9ffc3; transition: background-color 0.2s; }
+    .path { background-color: rgb(4, 0, 255) !important; }
+
+    h1{
+      color: blue;
+      font-family: "WDXL Lubrifont TC", sans-serif;
+      font-weight: 800;
+      font-style: normal;
+      font-size: 45px;
+
+    }
+    button{
+      height: 50px;
+      width: 100px;
+      background-color: #000dff;
+      color: whitesmoke;
+      font-family: "WDXL Lubrifont TC", sans-serif;
+      font-weight: 300;
+      font-style: normal;
+      border: #000dff solid;
+      margin-top: 20px;
+      border-radius: 10px;
+      transition: 0.5s;
+      font-size: 20px;
+    }
+    button:hover{
+      background-color: whitesmoke;
+      color: #000dff;
+      border: #000dff solid 2px;
+
+    }
+    aside{
+      background-color: white;
+      padding: 10px;
+      position: absolute;
+      margin-left: 800px;
+      margin-top: 200px;
+      border: #000dff 2px solid;
+    }
+
+  
+  </style>
+</head>
+<body>
+  <h1>Find Way AI</h1>
+  <div class="grid" id="grid"></div>
+  <button onclick="startSearch()">▶ Find</button>
+  <aside>
+    <h2>How to USE</h2>
+    <h4>
+      1. Click to point the start <br>
+      2. Click to point the Finish <br>
+      3. Click to create walls <br>
+      4. Click to Find way <br>
+    </h4>
+  </aside>
+  <script>
+    const gridSize = 15;
+    const gridElement = document.getElementById("grid");
+    let grid = [];
+    let start = null, end = null;
+
+    function createGrid() {
+      grid = [];
+      gridElement.innerHTML = "";
+      for (let y = 0; y < gridSize; y++) {
+        let row = [];
+        for (let x = 0; x < gridSize; x++) {
+          const cell = document.createElement("div");
+          cell.classList.add("cell");
+          cell.dataset.x = x;
+          cell.dataset.y = y;
+          cell.addEventListener("click", () => toggleCell(cell));
+          gridElement.appendChild(cell);
+          row.push({ x, y, cell, isWall: false });
+        }
+        grid.push(row);
+      }
+    }
+
+    function toggleCell(cell) {
+      const x = parseInt(cell.dataset.x);
+      const y = parseInt(cell.dataset.y);
+      const current = grid[y][x];
+
+      if (!start) {
+        start = current;
+        cell.classList.add("start");
+      } else if (!end && current !== start) {
+        end = current;
+        cell.classList.add("end");
+      } else if (current !== start && current !== end) {
+        current.isWall = !current.isWall;
+        cell.classList.toggle("wall");
+      }
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function startSearch() {
+      if (!start || !end) return alert("Choose Start and Finish!");
+
+      const queue = [start];
+      const cameFrom = {};
+      const visited = new Set();
+      const key = (node) => `${node.x},${node.y}`;
+
+      visited.add(key(start));
+
+      while (queue.length > 0) {
+        const current = queue.shift();
+
+        if (current !== start && current !== end) {
+          current.cell.classList.add("visited");
+          await sleep(20);
+        }
+
+        if (current === end) {
+          await showPath(cameFrom, current);
+          return;
+        }
+
+        for (let neighbor of getNeighbors(current)) {
+          const nKey = key(neighbor);
+          if (!visited.has(nKey)) {
+            visited.add(nKey);
+            queue.push(neighbor);
+            cameFrom[nKey] = current;
+          }
+        }
+      }
+
+      alert("Way is not Definded!");
+    }
+
+    function getNeighbors(node) {
+      const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+      const neighbors = [];
+      for (let [dx, dy] of dirs) {
+        const nx = node.x + dx;
+        const ny = node.y + dy;
+        if (nx >= 0 && ny >= 0 && nx < gridSize && ny < gridSize) {
+          const neighbor = grid[ny][nx];
+          if (!neighbor.isWall) neighbors.push(neighbor);
+        }
+      }
+      return neighbors;
+    }
+
+    async function showPath(cameFrom, current) {
+      const path = [];
+      const key = (node) => `${node.x},${node.y}`;
+
+      while (key(current) in cameFrom) {
+        current = cameFrom[key(current)];
+        if (current !== start) path.push(current);
+      }
+
+      path.reverse();
+
+      for (let node of path) {
+        node.cell.classList.remove("visited");
+        node.cell.classList.add("path");
+        await sleep(30);
+      }
+    }
+
+    createGrid();
+  </script>
+</body>
+</html>
